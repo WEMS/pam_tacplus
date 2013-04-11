@@ -38,9 +38,13 @@ int tac_authen_read(int fd) {
     HDR th;
     struct authen_reply *tb = NULL;
     int len_from_header, r, len_from_body;
-    char *msg = NULL;
+    char *hdr_err = NULL;
     int timeleft;
     int status;
+
+    /* Message Body Fields */
+	char *server_msg;
+    u_char *data;
 
     /* read the reply header */
     if (tac_readtimeout_enable &&
@@ -63,8 +67,8 @@ int tac_authen_read(int fd) {
     }
 
     /* check the reply fields in header */
-    msg = _tac_check_header(&th, TAC_PLUS_AUTHEN);
-    if(msg != NULL) {
+    hdr_err = _tac_check_header(&th, TAC_PLUS_AUTHEN);
+    if(hdr_err != NULL) {
         status = LIBTAC_STATUS_PROTOCOL_ERR;
         free(tb);
         return status;
@@ -112,26 +116,42 @@ int tac_authen_read(int fd) {
         return status;
     }
 
+    /* Extract server_msg and data */
+    TACDEBUG((LOG_DEBUG, "%s: msg_len=%d", __FUNCTION__, tb->msg_len))
+    TACDEBUG((LOG_DEBUG, "%s: data_len=%d", __FUNCTION__, tb->data_len))
+
+    if (tb->msg_len > 0) {
+    	server_msg = malloc(tb->msg_len+1);
+    	memcpy(server_msg,tb->data,tb->msg_len);
+    }
+
+    if (tb->data_len > 0) {
+    	data = malloc(tb->data_len);
+    	memcpy(data,tb->data+tb->msg_len,tb->data_len);
+    }
+
     /* save status and clean up */
     r = tb->status;
     status = r;
 
-    /* server authenticated username and password successfully */
-    if (r == TAC_PLUS_AUTHEN_STATUS_PASS) {
-        TACDEBUG((LOG_DEBUG, "%s: authentication ok", __FUNCTION__))
-        free(tb);
-        return status;
-    }
-        
-    /* server ask for continue packet with password */
-    if (r == TAC_PLUS_AUTHEN_STATUS_GETPASS) {
-        TACDEBUG((LOG_DEBUG, "%s: continue packet with password needed", __FUNCTION__))
-        free(tb);
-        return status;
-    }
+    switch (r) {
+    	case TAC_PLUS_AUTHEN_STATUS_PASS:
+    		TACDEBUG((LOG_DEBUG, "%s: authentication ok", __FUNCTION__))
+    	break;
 
-    TACDEBUG((LOG_DEBUG, "%s: authentication failed, server reply status=%d",\
-        __FUNCTION__, r))
+    	case TAC_PLUS_AUTHEN_STATUS_FAIL:
+    		TACDEBUG((LOG_DEBUG, "%s: authentication failed, server reply msg=%s",\
+    		        __FUNCTION__, server_msg))
+    	break;
+
+    	case TAC_PLUS_AUTHEN_STATUS_GETPASS:
+    		TACDEBUG((LOG_DEBUG, "%s: continue packet with password needed", __FUNCTION__))
+    	break;
+
+    	case TAC_PLUS_AUTHEN_STATUS_GETDATA:
+    		TACDEBUG((LOG_DEBUG, "%s: continue packet with requested data needed", __FUNCTION__))
+    	break;
+    }
 
     free(tb);
     return status;

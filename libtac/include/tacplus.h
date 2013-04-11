@@ -133,6 +133,9 @@ struct authen_reply {
 
     u_short msg_len;
     u_short data_len;
+    char	data[0]; /* Placeholder for the two variable length fields */
+    /* <msg_len bytes of char data> */
+    /* <data_len bytes of u_char data> */
 };
 
 #define TAC_AUTHEN_REPLY_FIXED_FIELDS_SIZE 6

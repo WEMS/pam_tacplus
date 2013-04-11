@@ -43,11 +43,10 @@ extern "C" {
 #include "cdefs.h"
 #endif
 #include "tacplus.h"
-
+#define DEBUGTAC
 #if defined(DEBUGTAC) && !defined(TACDEBUG)
 #define TACDEBUG(x) syslog x;
 #else
-//#define TACDEBUG(x) syslog x;
 #define TACDEBUG(x)
 #endif
 
