@@ -2,6 +2,7 @@
  * 
  * Copyright (C) 2010, Pawel Krawczyk <pawel.krawczyk@hush.com> and
  * Jeroen Nijhof <jeroen@jeroennijhof.nl>
+ * 2013, Guy Thouret <guythouret@wems.co.uk>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -161,6 +162,26 @@ int tac_authen_send(int fd, const char *user, char *pass, char *tty,
             __FUNCTION__, w, pkt_len))
         ret = LIBTAC_STATUS_WRITE_ERR;
     }
+
+    TACDEBUG((LOG_DEBUG, "TEST:"))
+    TACDEBUG((LOG_DEBUG, "%s",authen_service_string(1)))
+    TACDEBUG((LOG_DEBUG, "END TEST"))
+
+    /* Packet Debug (In 'debug tacacs packet' format */
+    TACDEBUG((LOG_DEBUG, "T+: Version %u (0x%02X), type %u, seq %u, encryption %u",
+    		th->version, th->version, th->type, th->seq_no, th->encryption))
+    TACDEBUG((LOG_DEBUG, "T+: session_id %u (0x%08X), dlen %u (0x%02X)",
+    		th->session_id, th->session_id, th->datalength, th->datalength))
+    TACDEBUG((LOG_DEBUG, "T+: type:AUTHEN/START, priv_lvl:%u action:%s %s",
+    		tb.priv_lvl, authen_action_string(tb.action), authen_type_string(tb.authen_type)))
+    TACDEBUG((LOG_DEBUG, "T+: svc:%s user_len:%u port_len:%u (0x%02X) raddr_len:%u (0x%02X) data_len:%d",
+    		authen_service_string(tb.service), tb.user_len, tb.port_len, tb.port_len, tb.r_addr_len,
+    		tb.r_addr_len, tb.data_len))
+    TACDEBUG((LOG_DEBUG, "T+: user:  %s", user))
+    TACDEBUG((LOG_DEBUG, "T+: port:  %s", tty))
+    TACDEBUG((LOG_DEBUG, "T+: rem_addr:  %s", r_addr))
+    TACDEBUG((LOG_DEBUG, "T+: data:  %s", token))
+    TACDEBUG((LOG_DEBUG, "T+: End Packet"))
 
     free(token);
     free(pkt);

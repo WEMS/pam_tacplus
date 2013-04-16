@@ -37,7 +37,7 @@
 int tac_authen_read(int fd) {
     HDR th;
     struct authen_reply *tb = NULL;
-    int len_from_header, r, len_from_body;
+    int len_from_header, r, len_from_body, msg_len, data_len;
     char *hdr_err = NULL;
     int timeleft;
     int status;
@@ -99,13 +99,16 @@ int tac_authen_read(int fd) {
     _tac_crypt((u_char *) tb, &th, len_from_header);
 
     /* Convert network byte order to host byte order */
-    tb->msg_len  = ntohs(tb->msg_len);
-    tb->data_len = ntohs(tb->data_len);
+    msg_len  = ntohs(tb->msg_len);
+    data_len = ntohs(tb->data_len);
+
+    TACDEBUG((LOG_DEBUG, "%s: msg_len=%d", __FUNCTION__, msg_len))
+    TACDEBUG((LOG_DEBUG, "%s: data_len=%d", __FUNCTION__, data_len))
 
     /* check the length fields */
     len_from_body = sizeof(tb->status) + sizeof(tb->flags) +
         sizeof(tb->msg_len) + sizeof(tb->data_len) +
-        tb->msg_len + tb->data_len;
+        msg_len + data_len;
 
     if(len_from_header != len_from_body) {
         TACSYSLOG((LOG_ERR,\
@@ -117,9 +120,6 @@ int tac_authen_read(int fd) {
     }
 
     /* Extract server_msg and data */
-    TACDEBUG((LOG_DEBUG, "%s: msg_len=%d", __FUNCTION__, tb->msg_len))
-    TACDEBUG((LOG_DEBUG, "%s: data_len=%d", __FUNCTION__, tb->data_len))
-
     if (tb->msg_len > 0) {
     	server_msg = malloc(tb->msg_len+1);
     	memcpy(server_msg,tb->data,tb->msg_len);
@@ -151,7 +151,22 @@ int tac_authen_read(int fd) {
     	case TAC_PLUS_AUTHEN_STATUS_GETDATA:
     		TACDEBUG((LOG_DEBUG, "%s: continue packet with requested data needed", __FUNCTION__))
     	break;
+
+    	default:
+    		TACDEBUG((LOG_DEBUG, "%s: unknown reply packet status=0x%02x", __FUNCTION__,r));
+    	break;
     }
+
+	/* Packet Debug (In 'debug tacacs packet' format */
+	TACDEBUG((LOG_DEBUG, "T+: Version %u (0x%02X), type %u, seq %u, encryption %u",
+		th.version, th.version, th.type, th.seq_no, th.encryption))
+	TACDEBUG((LOG_DEBUG, "T+: session_id %u (0x%08X), dlen %u (0x%02X)",
+		th.session_id, th.session_id, th.datalength, th.datalength))
+	TACDEBUG((LOG_DEBUG, "T+: type:AUTHEN/REPLY status:%d flags:%02X msg_len:%u, data_len:%u",
+		tb->status, tb->flags, tb->msg_len, tb->data_len))
+	TACDEBUG((LOG_DEBUG, "T+: msg:  %s", server_msg))
+	TACDEBUG((LOG_DEBUG, "T+: data: %s", data))
+	TACDEBUG((LOG_DEBUG, "T+: End Packet"))
 
     free(tb);
     return status;

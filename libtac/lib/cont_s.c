@@ -97,6 +97,17 @@ int tac_cont_send(int fd, char *pass) {
         ret=LIBTAC_STATUS_WRITE_ERR;
     }
 
+    /* Packet Debug (In 'debug tacacs packet' format */
+	TACDEBUG((LOG_DEBUG, "T+: Version %u (0x%02X), type %u, seq %u, encryption %u",
+		th->version, th->version, th->type, th->seq_no, th->encryption))
+	TACDEBUG((LOG_DEBUG, "T+: session_id %u (0x%08X), dlen %u (0x%02X)",
+		th->session_id, th->session_id, th->datalength, th->datalength))
+	TACDEBUG((LOG_DEBUG, "T+: type:AUTHEN/CONT msg_len:%u, data_len:%u flags:%02X",
+		tb.user_msg_len, tb.user_data_len,tb.flags))
+	TACDEBUG((LOG_DEBUG, "T+: User msg:  %s", pass))
+	TACDEBUG((LOG_DEBUG, "T+: User data: "))
+	TACDEBUG((LOG_DEBUG, "T+: End Packet"))
+
     free(pkt);
     free(th);
     TACDEBUG((LOG_DEBUG, "%s: exit status=%d", __FUNCTION__, ret))
