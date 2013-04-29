@@ -2,6 +2,7 @@
  * 
  * Copyright (C) 2010, Pawel Krawczyk <pawel.krawczyk@hush.com> and
  * Jeroen Nijhof <jeroen@jeroennijhof.nl>
+ * Portions Copyright (C) 2013 Guy Thouret <guythouret@wems.co.uk>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -313,6 +314,7 @@ int pam_sm_authenticate (pam_handle_t * pamh, int flags,
     /* uwzgledniac PAM_DISALLOW_NULL_AUTHTOK */
 
     retval = tacacs_get_password (pamh, flags, ctrl, &pass);
+
     if (retval != PAM_SUCCESS || pass == NULL || *pass == '\0') {
         _pam_log (LOG_ERR, "unable to obtain password");
         return PAM_CRED_INSUFFICIENT;
@@ -337,8 +339,9 @@ int pam_sm_authenticate (pam_handle_t * pamh, int flags,
     if (ctrl & PAM_TAC_DEBUG)
         syslog (LOG_DEBUG, "%s: rhost [%s] obtained", __FUNCTION__, r_addr);
 
+    /* Attempt server connect */
     for (srv_i = 0; srv_i < tac_srv_no; srv_i++) {
-        int msg = TAC_PLUS_AUTHEN_STATUS_FAIL;
+        status = TAC_PLUS_AUTHEN_STATUS_FAIL;
         if (ctrl & PAM_TAC_DEBUG)
             syslog (LOG_DEBUG, "%s: trying srv %d", __FUNCTION__, srv_i );
 
@@ -352,34 +355,89 @@ int pam_sm_authenticate (pam_handle_t * pamh, int flags,
             continue;
         }
 
-        if (tac_authen_send(tac_fd, user, pass, tty, r_addr) < 0) {
+        /* Send AUTHEN/START */
+        if (tac_authen_send(tac_fd, user, pass, tty, r_addr, TAC_PLUS_AUTHEN_LOGIN, ctrl) < 0) {
             _pam_log (LOG_ERR, "error sending auth req to TACACS+ server");
             status = PAM_AUTHINFO_UNAVAIL;
         } else {
-            msg = tac_authen_read(tac_fd);
-            if (msg == TAC_PLUS_AUTHEN_STATUS_GETPASS) {
-                if (ctrl & PAM_TAC_DEBUG)
-                    syslog (LOG_DEBUG, "%s: tac_cont_send called", __FUNCTION__);
-                if (tac_cont_send(tac_fd, pass) < 0) {
-                    _pam_log (LOG_ERR, "error sending continue req to TACACS+ server");
-                    status = PAM_AUTHINFO_UNAVAIL;
-                } else {
-                    msg = tac_authen_read(tac_fd);
-                    if (msg != TAC_PLUS_AUTHEN_STATUS_PASS) {
-                        _pam_log (LOG_ERR, "auth failed: %d", msg);
-                        status = PAM_AUTH_ERR;
-                    } else {
-                        /* OK, we got authenticated; save the server that
-                           accepted us for pam_sm_acct_mgmt and exit the loop */
-                        status = PAM_SUCCESS;
-                        active_server = tac_srv[srv_i];
-                        active_key = tac_srv_key[srv_i];
-                        close(tac_fd);
-                        break;
-                    }
-                }
-            } else if (msg != TAC_PLUS_AUTHEN_STATUS_PASS) {
-                _pam_log (LOG_ERR, "auth failed: %d", msg);
+        	/* Read AUTHEN/REPLY and act on status */
+        	struct msg_status *msgstatus = malloc(sizeof(msg_status));
+        	tac_authen_read(msgstatus, tac_fd, ctrl);
+        	status = msgstatus->status;
+            while ( (status == TAC_PLUS_AUTHEN_STATUS_GETDATA) ||
+            		(status == TAC_PLUS_AUTHEN_STATUS_GETPASS) ||
+            		(status == TAC_PLUS_AUTHEN_STATUS_GETUSER)) {
+            	switch (status) {
+            		case TAC_PLUS_AUTHEN_STATUS_GETPASS:
+            			/* AUTHEN/CONT with password */
+						if (ctrl & PAM_TAC_DEBUG)
+							syslog (LOG_DEBUG, "%s: tac_cont_send called", __FUNCTION__);
+
+						if (tac_cont_send(tac_fd, pass, ctrl) < 0) {
+							_pam_log (LOG_ERR, "error sending continue req to TACACS+ server");
+							status = PAM_AUTHINFO_UNAVAIL;
+						}
+            		break;
+
+            		case TAC_PLUS_AUTHEN_STATUS_GETDATA: {
+            			/* Get data from user with pam conversation */
+            			struct pam_message msg;
+						struct pam_response *resp = NULL;
+						int retval;
+						char *user_data = NULL;
+
+						/* set up conversation call */
+						msg.msg_style = PAM_PROMPT_ECHO_OFF;
+						msg.msg = malloc(sizeof(msgstatus->server_msg)+1);
+						strcpy(msg.msg,msgstatus->server_msg);
+
+						if ((retval = converse (pamh, 1, &msg, &resp)) != PAM_SUCCESS) {
+							status = PAM_AUTHINFO_UNAVAIL;
+						} else {
+							if (resp != NULL) {
+								if (resp->resp == NULL && (ctrl & PAM_TAC_DEBUG))
+									_pam_log (LOG_DEBUG, "pam_sm_authenticate: NULL given by user for GETDATA request");
+
+								user_data = resp->resp;
+								resp->resp = NULL;
+							} else {
+								if (ctrl & PAM_TAC_DEBUG) {
+									_pam_log (LOG_DEBUG, "pam_sm_authenticate: no error reported");
+									_pam_log (LOG_DEBUG, "getting data from user - NULL returned!?");
+								}
+								return PAM_CONV_ERR;
+							}
+
+							/* AUTHEN/CONT with data */
+							if (ctrl & PAM_TAC_DEBUG)
+								syslog (LOG_DEBUG, "%s: tac_cont_send called", __FUNCTION__);
+
+							if (tac_cont_send(tac_fd, user_data, ctrl) < 0) {
+								_pam_log (LOG_ERR, "error sending continue req to TACACS+ server");
+								status = PAM_AUTHINFO_UNAVAIL;
+							}
+						}
+            		}
+            		break;
+
+            		default: /* TAC_PLUS_AUTHEN_STATUS_GETUSER */
+            			/* AUTHEN/CONT with username */
+            			if (ctrl & PAM_TAC_DEBUG)
+							syslog (LOG_DEBUG, "%s: tac_cont_send called", __FUNCTION__);
+
+						if (tac_cont_send(tac_fd, user, ctrl) < 0) {
+							_pam_log (LOG_ERR, "error sending continue req to TACACS+ server");
+							status = PAM_AUTHINFO_UNAVAIL;
+						}
+            		break;
+            	}
+
+            	tac_authen_read(msgstatus, tac_fd, ctrl);
+            	status		= msgstatus->status;
+            }
+
+            if (status != TAC_PLUS_AUTHEN_STATUS_PASS) {
+                _pam_log (LOG_ERR, "auth failed: %d", status);
                 status = PAM_AUTH_ERR;
             } else {
                 /* OK, we got authenticated; save the server that
@@ -599,22 +657,191 @@ int pam_sm_close_session (pam_handle_t * pamh, int flags,
     return _pam_account(pamh, argc, argv, TAC_PLUS_ACCT_FLAG_STOP, NULL); 
 }    /* pam_sm_close_session */
 
-
-#ifdef PAM_SM_PASSWORD
-/* no-op function for future use */ 
 PAM_EXTERN 
 int pam_sm_chauthtok (pam_handle_t * pamh, int flags,
     int argc, const char **argv) {
 
-    int ctrl = _pam_parse (argc, argv);
+    int ctrl, retval;
+    char *user;
+    char *pass;
+    char *tty;
+    char *r_addr;
+    int srv_i;
+    int tac_fd;
+    int status = PAM_TRY_AGAIN;
+
+    user = pass = tty = r_addr = NULL;
+
+    ctrl = _pam_parse (argc, argv);
 
     if (ctrl & PAM_TAC_DEBUG)
         syslog (LOG_DEBUG, "%s: called (pam_tacplus v%u.%u.%u)"
             , __FUNCTION__, PAM_TAC_VMAJ, PAM_TAC_VMIN, PAM_TAC_VPAT);
 
-    return PAM_SUCCESS;
+    /* Preliminary call to check readiness of our module */
+    if (flags & PAM_PRELIM_CHECK) {
+    	/* Can we connect to TACACS? */
+    	for (srv_i = 0; srv_i < tac_srv_no; srv_i++) {
+    		if (ctrl & PAM_TAC_DEBUG)
+    			syslog (LOG_DEBUG, "%s: trying srv %d", __FUNCTION__, srv_i );
+    		tac_fd = tac_connect_single(tac_srv[srv_i], tac_srv_key[srv_i]);
+			if (tac_fd < 0) {
+				_pam_log (LOG_ERR, "connection failed srv %d: %m", srv_i);
+				if (srv_i == tac_srv_no-1) {
+					_pam_log (LOG_ERR, "no more servers to connect");
+					return PAM_TRY_AGAIN;
+				}
+				continue;
+			}
+    	}
+    	close(tac_fd);
+    	return PAM_SUCCESS;
+    }
+
+    if ((user = _pam_get_user(pamh)) == NULL)
+        return PAM_USER_UNKNOWN;
+
+    if (ctrl & PAM_TAC_DEBUG)
+        syslog (LOG_DEBUG, "%s: user [%s] obtained", __FUNCTION__, user);
+
+    /* CHPASS does not send a password in data field,
+     * user is prompted by a GETDATA reply packet
+     */
+    pass = malloc(5);
+    strcpy(pass,"null");
+
+    tty = _pam_get_terminal(pamh);
+    if (!strncmp (tty, "/dev/", 5))
+        tty += 5;
+    if (ctrl & PAM_TAC_DEBUG)
+        syslog (LOG_DEBUG, "%s: tty [%s] obtained", __FUNCTION__, tty);
+
+    r_addr = _pam_get_rhost(pamh);
+    if (ctrl & PAM_TAC_DEBUG)
+        syslog (LOG_DEBUG, "%s: rhost [%s] obtained", __FUNCTION__, r_addr);
+
+    /* Attempt server connect */
+    for (srv_i = 0; srv_i < tac_srv_no; srv_i++) {
+        status = TAC_PLUS_AUTHEN_STATUS_FAIL;
+        if (ctrl & PAM_TAC_DEBUG)
+            syslog (LOG_DEBUG, "%s: trying srv %d", __FUNCTION__, srv_i );
+
+        tac_fd = tac_connect_single(tac_srv[srv_i], tac_srv_key[srv_i]);
+        if (tac_fd < 0) {
+            _pam_log (LOG_ERR, "connection failed srv %d: %m", srv_i);
+            if (srv_i == tac_srv_no-1) {
+                _pam_log (LOG_ERR, "no more servers to connect");
+                return PAM_AUTHINFO_UNAVAIL;
+            }
+            continue;
+        }
+
+        /* Send AUTHEN/START */
+        if (tac_authen_send(tac_fd, user, pass, tty, r_addr, TAC_PLUS_AUTHEN_CHPASS, ctrl) < 0) {
+            _pam_log (LOG_ERR, "error sending auth req to TACACS+ server");
+            status = PAM_AUTHINFO_UNAVAIL;
+        } else {
+        	/* Read AUTHEN/REPLY and act on status */
+        	struct msg_status *msgstatus = malloc(sizeof(msg_status));
+        	tac_authen_read(msgstatus, tac_fd, ctrl);
+        	status = msgstatus->status;
+            while ( (status == TAC_PLUS_AUTHEN_STATUS_GETDATA) ||
+            		(status == TAC_PLUS_AUTHEN_STATUS_GETPASS) ||
+            		(status == TAC_PLUS_AUTHEN_STATUS_GETUSER)) {
+            	switch (status) {
+            		case TAC_PLUS_AUTHEN_STATUS_GETPASS:
+            			/* AUTHEN/CONT with password */
+						if (ctrl & PAM_TAC_DEBUG)
+							syslog (LOG_DEBUG, "%s: tac_cont_send called", __FUNCTION__);
+
+						if (tac_cont_send(tac_fd, pass, ctrl) < 0) {
+							_pam_log (LOG_ERR, "error sending continue req to TACACS+ server");
+							status = PAM_AUTHINFO_UNAVAIL;
+						}
+            		break;
+
+            		case TAC_PLUS_AUTHEN_STATUS_GETDATA: {
+            			/* Get data from user with pam conversation */
+            			struct pam_message msg;
+						struct pam_response *resp = NULL;
+						int retval;
+						char *user_data = NULL;
+
+						/* set up conversation call */
+						msg.msg_style = PAM_PROMPT_ECHO_OFF;
+						msg.msg = malloc(strlen(msgstatus->server_msg));
+						strcpy(msg.msg,msgstatus->server_msg);
+
+						if ((retval = converse (pamh, 1, &msg, &resp)) != PAM_SUCCESS) {
+							status = PAM_AUTHINFO_UNAVAIL;
+						} else {
+							if (resp != NULL) {
+								if (resp->resp == NULL && (ctrl & PAM_TAC_DEBUG))
+									_pam_log (LOG_DEBUG, "pam_sm_authenticate: NULL given by user for GETDATA request");
+
+								user_data = resp->resp;
+								resp->resp = NULL;
+							} else {
+								if (ctrl & PAM_TAC_DEBUG) {
+									_pam_log (LOG_DEBUG, "pam_sm_authenticate: no error reported");
+									_pam_log (LOG_DEBUG, "getting data from user - NULL returned!?");
+								}
+								return PAM_CONV_ERR;
+							}
+
+							/* AUTHEN/CONT with data */
+							if (ctrl & PAM_TAC_DEBUG)
+								syslog (LOG_DEBUG, "%s: tac_cont_send called", __FUNCTION__);
+
+							if (tac_cont_send(tac_fd, user_data, ctrl) < 0) {
+								_pam_log (LOG_ERR, "error sending continue req to TACACS+ server");
+								status = PAM_AUTHINFO_UNAVAIL;
+							}
+						}
+            		}
+            		break;
+
+            		default: /* TAC_PLUS_AUTHEN_STATUS_GETUSER */
+            			/* AUTHEN/CONT with username */
+            			if (ctrl & PAM_TAC_DEBUG)
+							syslog (LOG_DEBUG, "%s: tac_cont_send called", __FUNCTION__);
+
+						if (tac_cont_send(tac_fd, user, ctrl) < 0) {
+							_pam_log (LOG_ERR, "error sending continue req to TACACS+ server");
+							status = PAM_AUTHINFO_UNAVAIL;
+						}
+            		break;
+            	}
+
+            	tac_authen_read(msgstatus, tac_fd, ctrl);
+            	status		= msgstatus->status;
+            }
+
+            if (status != TAC_PLUS_AUTHEN_STATUS_PASS) {
+                _pam_log (LOG_ERR, "auth failed: %d", status);
+                status = PAM_AUTHTOK_ERR;
+            } else {
+                /* OK, we got authenticated; save the server that
+                   accepted us for pam_sm_acct_mgmt and exit the loop */
+                status = PAM_SUCCESS;
+                active_server = tac_srv[srv_i];
+                active_key = tac_srv_key[srv_i];
+                close(tac_fd);
+                break;
+            }
+        }
+        close(tac_fd);
+    }
+
+    if (ctrl & PAM_TAC_DEBUG)
+        syslog (LOG_DEBUG, "%s: exit with pam status: %i", __FUNCTION__, status);
+
+    bzero (pass, strlen (pass));
+    free(pass);
+    pass = NULL;
+
+    return status;
 }    /* pam_sm_chauthtok */
-#endif
 
 
 #ifdef PAM_STATIC
@@ -625,11 +852,7 @@ struct pam_module _pam_tacplus_modstruct {
     pam_sm_acct_mgmt,
     pam_sm_open_session,
     pam_sm_close_session,
-#ifdef PAM_SM_PASSWORD
     pam_sm_chauthtok
-#else
-    NULL
-#endif
 };
 #endif
 

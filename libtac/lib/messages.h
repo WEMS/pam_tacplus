@@ -2,7 +2,7 @@
  * 
  * Copyright (C) 2010, Pawel Krawczyk <pawel.krawczyk@hush.com> and
  * Jeroen Nijhof <jeroen@jeroennijhof.nl>
- * 2013, Guy Thouret <guythouret@wems.co.uk>
+ * Portions Copyright (C) 2013 Guy Thouret <guythouret@wems.co.uk>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -36,9 +36,9 @@ extern char *acct_fail_msg;
 extern char *acct_err_msg;
 extern char *acct_syserr_msg;
 
-int allocString(int length, char **ptrptr);
-char *authen_type_string (u_char authen_type);
-char *authen_action_string (u_char authen_action);
-char *authen_service_string(u_char authen_service);
+int allocString(unsigned int len, char** string_ptr);
+void authen_type_string (char** ptr, u_char authen_type);
+void authen_action_string (char** ptr, u_char authen_action);
+void authen_service_string (char** ptr, u_char authen_service);
 
 #endif

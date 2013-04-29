@@ -2,6 +2,7 @@
  * 
  * Copyright (C) 2010, Pawel Krawczyk <pawel.krawczyk@hush.com> and
  * Jeroen Nijhof <jeroen@jeroennijhof.nl>
+ * Portions Copyright (C) 2013 Guy Thouret <guythouret@wems.co.uk>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -77,6 +78,13 @@ struct areply {
     int status;
 };
 
+/* Structure for tac_authen_read to return server_msg and status */
+struct msg_status {
+	u_char status;
+	char *server_msg;
+};
+typedef struct msg_status msg_status;
+
 #ifndef TAC_PLUS_MAXSERVERS		
 #define TAC_PLUS_MAXSERVERS 4
 #endif
@@ -128,9 +136,9 @@ extern int tac_connect_single(struct addrinfo *server, char *key);
 extern char *tac_ntop(const struct sockaddr *sa, size_t ai_addrlen);
 
 extern int tac_authen_send(int fd, const char *user, char *pass, char *tty,
-    char *r_addr);
-extern int tac_authen_read(int fd);
-extern int tac_cont_send(int fd, char *pass);
+    char *r_addr, int action, int ctrl);
+extern void tac_authen_read(msg_status *msgstatus, int fd, int ctrl);
+extern int tac_cont_send(int fd, char *pass, int ctrl);
 extern HDR *_tac_req_header(u_char type, int cont_session);
 extern void _tac_crypt(u_char *buf, HDR *th, int length);
 extern u_char *_tac_md5_pad(int len, HDR *hdr);

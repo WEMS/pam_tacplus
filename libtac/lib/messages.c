@@ -2,7 +2,7 @@
  * 
  * Copyright (C) 2010, Pawel Krawczyk <pawel.krawczyk@hush.com> and
  * Jeroen Nijhof <jeroen@jeroennijhof.nl>
- * 2013, Guy Thouret <guythouret@wems.co.uk>
+ * Portions Copyright (C) 2013 Guy Thouret <guythouret@wems.co.uk>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -31,146 +31,129 @@ char *acct_ok_msg = "(Accounted ok)";
 char *acct_fail_msg = "(Accounting failed)";
 char *acct_err_msg = "(Accounting failed. Server error)";
 char *acct_syserr_msg = "(Accounting system error)";
+char *errorString = "Error";
 
-int allocString(int length, char **ptrptr) {
-	char *ptr = malloc(length + 1);
-
-	if(ptr == NULL)
-		return 0;
-
-	*ptrptr = ptr;
-
-	return 1;
+int allocString(unsigned int len, char** string_ptr) {
+	// Allocate momory for string including the extra space for '\0'
+	return ((*string_ptr = (char*)malloc(len + 1)) == NULL ? 0 : 1);
 }
 
-char *authen_type_string (u_char authen_type) {
-	char *string = NULL;
-
+void authen_type_string (char** ptr, u_char authen_type) {
 	switch (authen_type) {
 		case 1:
-			if (allocString(strlen("ASCII"), &string)) {
-				strcpy(string,"ASCII");
+			if (allocString(strlen("ASCII"), ptr)) {
+				strcpy(*ptr,"ASCII");
 			}
 		break;
 
 		case 2:
-			if (allocString(strlen("PAP"), &string)) {
-				strcpy(string,"PAP");
+			if (allocString(strlen("PAP"), ptr)) {
+				strcpy(*ptr,"PAP");
 			}
 		break;
 
 		case 3:
-			if (allocString(strlen("CHAP"), &string)) {
-				strcpy(string,"CHAP");
+			if (allocString(strlen("CHAP"), ptr)) {
+				strcpy(*ptr,"CHAP");
 			}
 		break;
 
 		case 4:
-			if (allocString(strlen("ARAP"), &string)) {
-				strcpy(string,"ARAP");
+			if (allocString(strlen("ARAP"), ptr)) {
+				strcpy(*ptr,"ARAP");
 			}
 		break;
 
 		default:
-			if (allocString(strlen("Unknown"), &string)) {
-				strcpy(string,"Unknown");
+			if (allocString(strlen("Unknown"), ptr)) {
+				strcpy(*ptr,"Unknown");
 			}
 		break;
 	}
-
-	return string;
 }
 
-char *authen_action_string (u_char authen_action) {
-	char *string= NULL;
-
+void authen_action_string (char** ptr, u_char authen_action) {
 	switch (authen_action) {
 		case 1:
-			if (allocString(strlen("LOGIN"), &string)) {
-				strcpy(string,"LOGIN");
+			if (allocString(strlen("LOGIN"), ptr)) {
+				strcpy(*ptr,"LOGIN");
 			}
 		break;
 
 		case 2:
-			if (allocString(strlen("CHPASS"), &string)) {
-				strcpy(string,"CHPASS");
+			if (allocString(strlen("CHPASS"), ptr)) {
+				strcpy(*ptr,"CHPASS");
 			}
 		break;
 
 		case 3:
-			if (allocString(strlen("SENDPASS"), &string)) {
-				strcpy(string,"SENDPASS");
+			if (allocString(strlen("SENDPASS"), ptr)) {
+				strcpy(*ptr,"SENDPASS");
 			}
 		break;
 
 		default:
-			if (allocString(strlen("Unknown"), &string)) {
-				strcpy(string,"Unknown");
+			if (allocString(strlen("Unknown"), ptr)) {
+				strcpy(*ptr,"Unknown");
 			}
 		break;
 	}
-
-	return string;
 }
 
-char *authen_service_string (u_char authen_service) {
-	char *string = NULL;
-
+void authen_service_string (char** ptr, u_char authen_service) {
 	switch (authen_service) {
 		case 0:
-			if (allocString(strlen("NONE"), &string)) {
-				strcpy(string,"NONE");
+			if (allocString(strlen("NONE"), ptr)) {
+				strcpy(*ptr,"NONE");
 			}
 		break;
 
 		case 1:
-			if (allocString(strlen("LOGIN"), &string)) {
-				strcpy(string,"LOGIN");
+			if (allocString(strlen("LOGIN"), ptr)) {
+				strcpy(*ptr,"LOGIN");
 			}
 		break;
 
 		case 2:
-			if (allocString(strlen("ENABLE"), &string)) {
-				strcpy(string,"ENABLE");
+			if (allocString(strlen("ENABLE"), ptr)) {
+				strcpy(*ptr,"ENABLE");
 			}
 		break;
 
 		case 3:
-			if (allocString(strlen("PPP"), &string)) {
-				strcpy(string,"PPP");
+			if (allocString(strlen("PPP"), ptr)) {
+				strcpy(*ptr,"PPP");
 			}
 		break;
 
 		case 4:
-			if (allocString(strlen("ARAP"), &string)) {
-				strcpy(string,"ARAP");
+			if (allocString(strlen("ARAP"), ptr)) {
+				strcpy(*ptr,"ARAP");
 			}
 		break;
 
 		case 5:
-			if (allocString(strlen("PT"), &string)) {
-				strcpy(string,"PT");
+			if (allocString(strlen("PT"), ptr)) {
+				strcpy(*ptr,"PT");
 			}
 		break;
 
 		case 6:
-			if (allocString(strlen("RCMD"), &string)) {
-				strcpy(string,"RCMD");
+			if (allocString(strlen("RCMD"), ptr)) {
+				strcpy(*ptr,"RCMD");
 			}
 		break;
 
 		case 7:
-			if (allocString(strlen("X25"), &string)) {
-				strcpy(string,"X25");
+			if (allocString(strlen("X25"), ptr)) {
+				strcpy(*ptr,"X25");
 			}
 		break;
 
 		default:
-			if (allocString(strlen("Unknown"), &string)) {
-				strcpy(string,"Unknown");
+			if (allocString(strlen("Unknown"), ptr)) {
+				strcpy(*ptr,"Unknown");
 			}
 		break;
 	}
-
-	return string;
 }

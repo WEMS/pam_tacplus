@@ -2,6 +2,7 @@
  * 
  * Copyright (C) 2010, Pawel Krawczyk <pawel.krawczyk@hush.com> and
  * Jeroen Nijhof <jeroen@jeroennijhof.nl>
+ * Portions Copyright (C) 2013 Guy Thouret <guythouret@wems.co.uk>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -24,6 +25,7 @@
 #define PAM_TAC_ACCT  0x02 /* account on all specified servers */
 #define PAM_TAC_USE_FIRST_PASS 0x04
 #define PAM_TAC_TRY_FIRST_PASS 0x08
+#define PAM_TAC_PACKET_DEBUG 0xA
 
 /* pam_tacplus major, minor and patchlevel version numbers */
 #define PAM_TAC_VMAJ 1

@@ -2,6 +2,7 @@
  * 
  * Copyright (C) 2010, Pawel Krawczyk <pawel.krawczyk@hush.com> and
  * Jeroen Nijhof <jeroen@jeroennijhof.nl>
+ * Portions Copyright (C) 2013 Guy Thouret <guythouret@wems.co.uk>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -202,6 +203,8 @@ int _pam_parse (int argc, const char **argv) {
     for (ctrl = 0; argc-- > 0; ++argv) {
         if (!strcmp (*argv, "debug")) { /* all */
             ctrl |= PAM_TAC_DEBUG;
+        } else if (!strcmp (*argv, "packet_debug")) {
+            ctrl |= PAM_TAC_PACKET_DEBUG;
         } else if (!strcmp (*argv, "use_first_pass")) {
             ctrl |= PAM_TAC_USE_FIRST_PASS;
         } else if (!strcmp (*argv, "try_first_pass")) { 

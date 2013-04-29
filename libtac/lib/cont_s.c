@@ -1,6 +1,7 @@
 /* cont_s.c - Send continue request to the server.
  * 
  * Copyright (C) 2010, Jeroen Nijhof <jeroen@jeroennijhof.nl>
+ * Portions Copyright (C) 2013 Guy Thouret <guythouret@wems.co.uk>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,6 +21,7 @@
 
 #include "libtac.h"
 #include "md5.h"
+#include "pam_tacplus.h"
 
 /* this function sends a continue packet do TACACS+ server, asking
  * for validation of given password
@@ -31,7 +33,7 @@
  *         LIBTAC_STATUS_WRITE_TIMEOUT  (pending impl)
  *         LIBTAC_STATUS_ASSEMBLY_ERR
  */
-int tac_cont_send(int fd, char *pass) {
+int tac_cont_send(int fd, char *pass, int ctrl) {
     HDR *th;        /* TACACS+ packet header */
     struct authen_cont tb;  /* continue body */
     int pass_len, bodylength, w;
@@ -98,18 +100,24 @@ int tac_cont_send(int fd, char *pass) {
     }
 
     /* Packet Debug (In 'debug tacacs packet' format */
-	TACDEBUG((LOG_DEBUG, "T+: Version %u (0x%02X), type %u, seq %u, encryption %u",
-		th->version, th->version, th->type, th->seq_no, th->encryption))
-	TACDEBUG((LOG_DEBUG, "T+: session_id %u (0x%08X), dlen %u (0x%02X)",
-		th->session_id, th->session_id, th->datalength, th->datalength))
-	TACDEBUG((LOG_DEBUG, "T+: type:AUTHEN/CONT msg_len:%u, data_len:%u flags:%02X",
-		tb.user_msg_len, tb.user_data_len,tb.flags))
-	TACDEBUG((LOG_DEBUG, "T+: User msg:  %s", pass))
-	TACDEBUG((LOG_DEBUG, "T+: User data: "))
-	TACDEBUG((LOG_DEBUG, "T+: End Packet"))
+    if (ctrl & PAM_TAC_PACKET_DEBUG) {
+		TACDEBUG((LOG_DEBUG, "T+: Version %u (0x%02X), type %u, seq %u, encryption %u",
+			th->version, th->version, th->type, th->seq_no, th->encryption))
+		TACDEBUG((LOG_DEBUG, "T+: session_id %u (0x%08X), dlen %u (0x%02X)",
+			th->session_id, th->session_id, th->datalength, th->datalength))
+		TACDEBUG((LOG_DEBUG, "T+: type:AUTHEN/CONT msg_len:%u, data_len:%u flags:%02X",
+			ntohs(tb.user_msg_len), tb.user_data_len,tb.flags))
+		/*TACDEBUG((LOG_DEBUG, "T+: User msg:  %s", pass)) hide user password (!)*/
+		TACDEBUG((LOG_DEBUG, "T+: User msg:  <hidden>"))
+		TACDEBUG((LOG_DEBUG, "T+: User data: "))
+		TACDEBUG((LOG_DEBUG, "T+: End Packet"))
+    }
 
     free(pkt);
     free(th);
-    TACDEBUG((LOG_DEBUG, "%s: exit status=%d", __FUNCTION__, ret))
+
+    if (ctrl & PAM_TAC_DEBUG)
+    	TACDEBUG((LOG_DEBUG, "%s: exit status=%d", __FUNCTION__, ret))
+
     return ret;
 } /* tac_cont_send */

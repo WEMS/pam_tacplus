@@ -2,7 +2,7 @@
  * 
  * Copyright (C) 2010, Pawel Krawczyk <pawel.krawczyk@hush.com> and
  * Jeroen Nijhof <jeroen@jeroennijhof.nl>
- * 2013, Guy Thouret <guythouret@wems.co.uk>
+ * Portions Copyright (C) 2013 Guy Thouret <guythouret@wems.co.uk>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -23,6 +23,7 @@
 #include "libtac.h"
 #include "xalloc.h"
 #include "md5.h"
+#include "pam_tacplus.h"
 
 /* this function sends a packet do TACACS+ server, asking
  * for validation of given username and password
@@ -35,7 +36,7 @@
  *             LIBTAC_STATUS_ASSEMBLY_ERR
  */
 int tac_authen_send(int fd, const char *user, char *pass, char *tty,
-    char *r_addr) {
+    char *r_addr, int action, int ctrl) {
 
     HDR *th;    /* TACACS+ packet header */
     struct authen_start tb;     /* message body */
@@ -59,9 +60,10 @@ int tac_authen_send(int fd, const char *user, char *pass, char *tty,
     }
     th->encryption = tac_encryption ? TAC_PLUS_ENCRYPTED_FLAG : TAC_PLUS_UNENCRYPTED_FLAG;
 
-    TACDEBUG((LOG_DEBUG, "%s: user '%s', tty '%s', rem_addr '%s', encrypt: %s", \
-        __FUNCTION__, user, tty, r_addr, \
-        (tac_encryption) ? "yes" : "no"))        
+    if (ctrl & PAM_TAC_DEBUG)
+    	TACDEBUG((LOG_DEBUG, "%s: user '%s', tty '%s', rem_addr '%s', encrypt: %s", \
+			__FUNCTION__, user, tty, r_addr, \
+			(tac_encryption) ? "yes" : "no"))
         
     if ((tac_login != NULL) && (strcmp(tac_login,"chap") == 0)) {
         chal_len = strlen(chal);
@@ -89,7 +91,7 @@ int tac_authen_send(int fd, const char *user, char *pass, char *tty,
     token_len = strlen(token);
 
     /* fill the body of message */
-    tb.action = TAC_PLUS_AUTHEN_LOGIN;
+    tb.action = action;
     tb.priv_lvl = tac_priv_lvl;
     if (tac_login == NULL) {
         /* default to PAP */
@@ -163,29 +165,42 @@ int tac_authen_send(int fd, const char *user, char *pass, char *tty,
         ret = LIBTAC_STATUS_WRITE_ERR;
     }
 
-    TACDEBUG((LOG_DEBUG, "TEST:"))
-    TACDEBUG((LOG_DEBUG, "%s",authen_service_string(1)))
-    TACDEBUG((LOG_DEBUG, "END TEST"))
-
     /* Packet Debug (In 'debug tacacs packet' format */
-    TACDEBUG((LOG_DEBUG, "T+: Version %u (0x%02X), type %u, seq %u, encryption %u",
-    		th->version, th->version, th->type, th->seq_no, th->encryption))
-    TACDEBUG((LOG_DEBUG, "T+: session_id %u (0x%08X), dlen %u (0x%02X)",
-    		th->session_id, th->session_id, th->datalength, th->datalength))
-    TACDEBUG((LOG_DEBUG, "T+: type:AUTHEN/START, priv_lvl:%u action:%s %s",
-    		tb.priv_lvl, authen_action_string(tb.action), authen_type_string(tb.authen_type)))
-    TACDEBUG((LOG_DEBUG, "T+: svc:%s user_len:%u port_len:%u (0x%02X) raddr_len:%u (0x%02X) data_len:%d",
-    		authen_service_string(tb.service), tb.user_len, tb.port_len, tb.port_len, tb.r_addr_len,
-    		tb.r_addr_len, tb.data_len))
-    TACDEBUG((LOG_DEBUG, "T+: user:  %s", user))
-    TACDEBUG((LOG_DEBUG, "T+: port:  %s", tty))
-    TACDEBUG((LOG_DEBUG, "T+: rem_addr:  %s", r_addr))
-    TACDEBUG((LOG_DEBUG, "T+: data:  %s", token))
-    TACDEBUG((LOG_DEBUG, "T+: End Packet"))
+    if (ctrl & PAM_TAC_PACKET_DEBUG) {
+		char *action_str;
+		char *type_str;
+		char *service_str;
+
+		authen_action_string(&action_str, tb.action);
+		authen_type_string(&type_str, tb.authen_type);
+		authen_service_string(&service_str, tb.service);
+
+		TACDEBUG((LOG_DEBUG, "T+: Version %u (0x%02X), type %u, seq %u, encryption %u",
+				th->version, th->version, th->type, th->seq_no, th->encryption))
+		TACDEBUG((LOG_DEBUG, "T+: session_id %u (0x%08X), dlen %u (0x%02X)",
+				th->session_id, th->session_id, th->datalength, th->datalength))
+		TACDEBUG((LOG_DEBUG, "T+: type:AUTHEN/START, priv_lvl:%u action:%s %s",
+				tb.priv_lvl, action_str, type_str))
+		TACDEBUG((LOG_DEBUG, "T+: svc:%s user_len:%u port_len:%u (0x%02X) raddr_len:%u (0x%02X) data_len:%d",
+				service_str, tb.user_len, tb.port_len, tb.port_len, tb.r_addr_len,
+				tb.r_addr_len, tb.data_len))
+		TACDEBUG((LOG_DEBUG, "T+: user:  %s", user))
+		TACDEBUG((LOG_DEBUG, "T+: port:  %s", tty))
+		TACDEBUG((LOG_DEBUG, "T+: rem_addr:  %s", r_addr))
+		/*TACDEBUG((LOG_DEBUG, "T+: data:  %s", token)) hide user password (!)*/
+		TACDEBUG((LOG_DEBUG, "T+: data:  <hidden>"))
+		TACDEBUG((LOG_DEBUG, "T+: End Packet"))
+
+	    free(action_str);
+	    free(type_str);
+	    free(service_str);
+    }
 
     free(token);
     free(pkt);
     free(th);
-    TACDEBUG((LOG_DEBUG, "%s: exit status=%d", __FUNCTION__, ret))
+
+    if (ctrl & PAM_TAC_DEBUG)
+    	TACDEBUG((LOG_DEBUG, "%s: exit status=%d", __FUNCTION__, ret))
     return ret;
 }    /* tac_authen_send */
