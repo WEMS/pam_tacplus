@@ -22,7 +22,7 @@
 
 #include <stdlib.h>     /* malloc */
 #include <stdio.h>
-#include <_pam_log.h>
+#include <syslog.h>
 #include <netdb.h>      /* gethostbyname */
 #include <sys/socket.h> /* in_addr */
 #include <netinet/in.h>
