@@ -356,7 +356,7 @@ int pam_sm_authenticate (pam_handle_t * pamh, int flags,
         }
 
         /* Send AUTHEN/START */
-        if (tac_authen_send(tac_fd, user, pass, tty, r_addr, TAC_PLUS_AUTHEN_LOGIN, ctrl, seq) < 0) {
+        if (tac_authen_send(tac_fd, user, pass, tty, r_addr, TAC_PLUS_AUTHEN_LOGIN, ctrl) < 0) {
             _pam_log (LOG_ERR, "error sending auth req to TACACS+ server");
             status = PAM_AUTHINFO_UNAVAIL;
         } else {
