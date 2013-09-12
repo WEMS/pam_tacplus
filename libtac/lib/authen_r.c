@@ -37,7 +37,7 @@
  *         LIBTAC_STATUS_PROTOCOL_ERR
  *   >= 0 : server response, see TAC_PLUS_AUTHEN_STATUS_...
  */
-void tac_authen_read(msg_status *msgstatus, int fd, int ctrl) {
+void tac_authen_read(msg_status *msgstatus, int fd, int ctrl, int *seq) {
     HDR th;
     struct authen_reply *tb = NULL;
     int len_from_header, r, len_from_body, msg_len, data_len;
@@ -139,6 +139,9 @@ void tac_authen_read(msg_status *msgstatus, int fd, int ctrl) {
     /* save status and clean up */
     r = tb->status;
     msgstatus->status = r;
+
+    /* grab the return sequence no */
+    *seq = th.seq_no;
 
     if (ctrl & PAM_TAC_DEBUG) {
 		switch (r) {

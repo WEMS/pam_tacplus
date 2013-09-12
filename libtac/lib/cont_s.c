@@ -33,7 +33,7 @@
  *         LIBTAC_STATUS_WRITE_TIMEOUT  (pending impl)
  *         LIBTAC_STATUS_ASSEMBLY_ERR
  */
-int tac_cont_send(int fd, char *pass, int ctrl) {
+int tac_cont_send(int fd, char *pass, int ctrl, int seq) {
     HDR *th;        /* TACACS+ packet header */
     struct authen_cont tb;  /* continue body */
     int pass_len, bodylength, w;
@@ -45,7 +45,7 @@ int tac_cont_send(int fd, char *pass, int ctrl) {
 
     /* set some header options */
     th->version = TAC_PLUS_VER_0;
-    th->seq_no = 3;       /* 1 = request, 2 = reply, 3 = continue, 4 = reply */
+    th->seq_no = seq;
     th->encryption = tac_encryption ? TAC_PLUS_ENCRYPTED_FLAG : TAC_PLUS_UNENCRYPTED_FLAG;
 
     /* get size of submitted data */

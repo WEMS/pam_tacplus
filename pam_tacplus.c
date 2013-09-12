@@ -295,6 +295,7 @@ int pam_sm_authenticate (pam_handle_t * pamh, int flags,
     int srv_i;
     int tac_fd;
     int status = PAM_AUTH_ERR;
+    int seq = 0;
 
     user = pass = tty = r_addr = NULL;
 
@@ -355,7 +356,7 @@ int pam_sm_authenticate (pam_handle_t * pamh, int flags,
         }
 
         /* Send AUTHEN/START */
-        if (tac_authen_send(tac_fd, user, pass, tty, r_addr, TAC_PLUS_AUTHEN_LOGIN, ctrl) < 0) {
+        if (tac_authen_send(tac_fd, user, pass, tty, r_addr, TAC_PLUS_AUTHEN_LOGIN, ctrl, seq) < 0) {
             _pam_log (LOG_ERR, "error sending auth req to TACACS+ server");
             status = PAM_AUTHINFO_UNAVAIL;
         } else {
@@ -364,7 +365,8 @@ int pam_sm_authenticate (pam_handle_t * pamh, int flags,
 
             do
 			{
-				tac_authen_read(msgstatus, tac_fd, ctrl);
+            	tac_authen_read(msgstatus, tac_fd, ctrl, &seq);
+            	_pam_log (LOG_DEBUG, "tac seq_no = %u", seq);
         		status = msgstatus->status;
 
             	switch (status) {
@@ -373,7 +375,7 @@ int pam_sm_authenticate (pam_handle_t * pamh, int flags,
 						if (ctrl & PAM_TAC_DEBUG)
 							_pam_log (LOG_DEBUG, "%s: tac_cont_send called", __FUNCTION__);
 
-						if (tac_cont_send(tac_fd, pass, ctrl) < 0) {
+						if (tac_cont_send(tac_fd, pass, ctrl, seq+1) < 0) {
 							_pam_log (LOG_ERR, "error sending continue req to TACACS+ server");
 							status = PAM_MAXTRIES;
 						}
@@ -425,7 +427,7 @@ int pam_sm_authenticate (pam_handle_t * pamh, int flags,
 								if (ctrl & PAM_TAC_DEBUG)
 									_pam_log (LOG_DEBUG, "%s: tac_cont_send called", __FUNCTION__);
 
-								if (tac_cont_send(tac_fd, user_data, ctrl) < 0) {
+								if (tac_cont_send(tac_fd, user_data, ctrl, seq+1) < 0) {
 									_pam_log (LOG_ERR, "error sending continue req to TACACS+ server");
 									status = PAM_AUTHINFO_UNAVAIL;
 								}
@@ -440,7 +442,7 @@ int pam_sm_authenticate (pam_handle_t * pamh, int flags,
             			if (ctrl & PAM_TAC_DEBUG)
 							_pam_log (LOG_DEBUG, "%s: tac_cont_send called", __FUNCTION__);
 
-						if (tac_cont_send(tac_fd, user, ctrl) < 0) {
+						if (tac_cont_send(tac_fd, user, ctrl, seq+1) < 0) {
 							_pam_log (LOG_ERR, "error sending continue req to TACACS+ server");
 							status = PAM_AUTHINFO_UNAVAIL;
 						}
@@ -682,6 +684,7 @@ int pam_sm_chauthtok (pam_handle_t * pamh, int flags,
     int srv_i;
     int tac_fd;
     int status = PAM_TRY_AGAIN;
+    int seq = 0;
 
     user = pass = tty = r_addr = NULL;
 
@@ -759,7 +762,7 @@ int pam_sm_chauthtok (pam_handle_t * pamh, int flags,
 
 			do
 			{
-				tac_authen_read(msgstatus, tac_fd, ctrl);
+				tac_authen_read(msgstatus, tac_fd, ctrl, &seq);
 				status = msgstatus->status;
 
 				switch (status) {
@@ -768,7 +771,7 @@ int pam_sm_chauthtok (pam_handle_t * pamh, int flags,
 						if (ctrl & PAM_TAC_DEBUG)
 							_pam_log (LOG_DEBUG, "%s: tac_cont_send called", __FUNCTION__);
 
-						if (tac_cont_send(tac_fd, pass, ctrl) < 0) {
+						if (tac_cont_send(tac_fd, pass, ctrl, seq+1) < 0) {
 							_pam_log (LOG_ERR, "error sending continue req to TACACS+ server");
 							status = PAM_AUTHINFO_UNAVAIL;
 						}
@@ -808,7 +811,7 @@ int pam_sm_chauthtok (pam_handle_t * pamh, int flags,
 							if (ctrl & PAM_TAC_DEBUG)
 								_pam_log (LOG_DEBUG, "%s: tac_cont_send called", __FUNCTION__);
 
-							if (tac_cont_send(tac_fd, user_data, ctrl) < 0) {
+							if (tac_cont_send(tac_fd, user_data, ctrl, seq+1) < 0) {
 								_pam_log (LOG_ERR, "error sending continue req to TACACS+ server");
 								status = PAM_AUTHINFO_UNAVAIL;
 							}
@@ -822,7 +825,7 @@ int pam_sm_chauthtok (pam_handle_t * pamh, int flags,
 						if (ctrl & PAM_TAC_DEBUG)
 							_pam_log (LOG_DEBUG, "%s: tac_cont_send called", __FUNCTION__);
 
-						if (tac_cont_send(tac_fd, user, ctrl) < 0) {
+						if (tac_cont_send(tac_fd, user, ctrl, seq+1) < 0) {
 							_pam_log (LOG_ERR, "error sending continue req to TACACS+ server");
 							status = PAM_AUTHINFO_UNAVAIL;
 						}
