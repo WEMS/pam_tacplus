@@ -24,8 +24,7 @@
 
 /* Checks given reply header for possible inconsistencies:
  *  1. reply type other than expected
- *  2. sequence number other than 2 or 4
- *  3. session_id different from one sent in request
+ *  2. session_id different from one sent in request
  * Returns pointer to error message
  * or NULL when the header seems to be correct
  */
@@ -34,10 +33,6 @@ char *_tac_check_header(HDR *th, int type) {
         TACSYSLOG((LOG_ERR,\
             "%s: unrelated reply, type %d, expected %d",\
             __FUNCTION__, th->type, type))
-        return protocol_err_msg;
-    } else if((th->seq_no != 2) && (th->seq_no != 4)) {
-        TACSYSLOG((LOG_ERR, "%s: not a reply - seq_no %d != {2,4}",\
-            __FUNCTION__, th->seq_no))
         return protocol_err_msg;
     } /* else if(ntohl(th->session_id) != session_id) {
         TACSYSLOG((LOG_ERR,\
