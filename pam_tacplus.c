@@ -366,7 +366,6 @@ int pam_sm_authenticate (pam_handle_t * pamh, int flags,
             do
 			{
             	tac_authen_read(msgstatus, tac_fd, ctrl, &seq);
-            	_pam_log (LOG_DEBUG, "tac seq_no = %u", seq);
         		status = msgstatus->status;
 
             	switch (status) {
@@ -391,7 +390,8 @@ int pam_sm_authenticate (pam_handle_t * pamh, int flags,
             			 */
             			if (!strcmp(tty,"http")) {
             				status = PAM_NEW_AUTHTOK_REQD;
-            				_pam_log (LOG_DEBUG, "%s: expired", __FUNCTION__);
+            				if (ctrl & PAM_TAC_DEBUG)
+            					_pam_log (LOG_DEBUG, "%s: expired", __FUNCTION__);
             			} else {
 
 							/* Get data from user with pam conversation */
@@ -404,7 +404,6 @@ int pam_sm_authenticate (pam_handle_t * pamh, int flags,
 							msg.msg_style = PAM_PROMPT_ECHO_OFF;
 							msg.msg = malloc(100);
 							strcpy((char *)msg.msg,msgstatus->server_msg);
-							_pam_log (LOG_DEBUG, "copy ok");
 
 							if ((retval = converse (pamh, 1, &msg, &resp)) != PAM_SUCCESS) {
 								status = PAM_AUTHINFO_UNAVAIL;
@@ -451,7 +450,9 @@ int pam_sm_authenticate (pam_handle_t * pamh, int flags,
             } while ( 	(status == TAC_PLUS_AUTHEN_STATUS_GETDATA) ||
             			(status == TAC_PLUS_AUTHEN_STATUS_GETPASS) ||
             			(status == TAC_PLUS_AUTHEN_STATUS_GETUSER)		);
-            _pam_log (LOG_DEBUG, "%s: out of while loop status=%d", __FUNCTION__,status);
+
+            if (ctrl & PAM_TAC_DEBUG)
+            	_pam_log (LOG_DEBUG, "%s: out of while loop status=%d", __FUNCTION__,status);
 
             if (status == TAC_PLUS_AUTHEN_STATUS_PASS) {
             	/* OK, we got authenticated; save the server that
@@ -788,7 +789,6 @@ int pam_sm_chauthtok (pam_handle_t * pamh, int flags,
 						msg.msg_style = PAM_PROMPT_ECHO_OFF;
 						msg.msg = malloc(100);
 						strcpy((char *)msg.msg,msgstatus->server_msg);
-						_pam_log (LOG_DEBUG, "copy ok");
 
 						if ((retval = converse (pamh, 1, &msg, &resp)) != PAM_SUCCESS) {
 							status = PAM_AUTHINFO_UNAVAIL;
