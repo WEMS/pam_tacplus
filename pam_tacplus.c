@@ -675,8 +675,7 @@ int pam_sm_close_session (pam_handle_t * pamh, int flags,
     int argc, const char **argv) {
 
 	/* Retrieve cmd pam_env */
-	char * cmd = NULL;
-	cmd = pam_getenv(pamh, 'cmd');
+	const char* cmd = pam_getenv(pamh, "cmd");
 
     return _pam_account(pamh, argc, argv, TAC_PLUS_ACCT_FLAG_STOP, cmd);
 }    /* pam_sm_close_session */
