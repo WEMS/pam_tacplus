@@ -466,6 +466,10 @@ int pam_sm_authenticate (pam_handle_t * pamh, int flags,
             }
         }
         close(tac_fd);
+
+        /* TODO: Allow time for tac server to reply
+         * TODO: Check if reply received before connecting to next server
+         */
     }
 
     if (ctrl & PAM_TAC_DEBUG)
@@ -670,7 +674,11 @@ PAM_EXTERN
 int pam_sm_close_session (pam_handle_t * pamh, int flags,
     int argc, const char **argv) {
 
-    return _pam_account(pamh, argc, argv, TAC_PLUS_ACCT_FLAG_STOP, NULL); 
+	/* Retrieve cmd pam_env */
+	char * cmd = NULL;
+	cmd = pam_getenv(pamh, 'cmd');
+
+    return _pam_account(pamh, argc, argv, TAC_PLUS_ACCT_FLAG_STOP, cmd);
 }    /* pam_sm_close_session */
 
 PAM_EXTERN 
